@@ -76,8 +76,8 @@ function removeProperties(obj, keys) {
  *    compareObjects({a: 1, b: 2}, {a: 1, b: 2}) => true
  *    compareObjects({a: 1, b: 2}, {a: 1, b: 3}) => false
  */
-function compareObjects(/* obj1, obj2 */) {
-  throw new Error('Not implemented');
+function compareObjects(obj1, obj2) {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
 }
 
 /**
@@ -388,32 +388,121 @@ function group(array, keySelector, valueSelector) {
  */
 
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value = '') {
+    return this.createSelector(value, 'element');
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value = '') {
+    return this.createSelector(`#${value}`, 'id');
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value = '') {
+    return this.createSelector(`.${value}`, 'class');
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value = '') {
+    return this.createSelector(`[${value}]`, 'attr');
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value = '') {
+    return this.createSelector(`:${value}`, 'pseudoClass');
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value = '') {
+    return this.createSelector(`::${value}`, 'pseudoElement');
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    return this.createSelector(
+      `${selector1.stringify()} ${combinator} ${selector2.stringify()}`
+    );
+  },
+
+  createSelector(value, selector) {
+    let tag = '';
+
+    if (selector === 'element') {
+      tag = value;
+    }
+
+    const partsOrder = [
+      'element',
+      'id',
+      'class',
+      'attr',
+      'pseudoClass',
+      'pseudoElement',
+    ];
+    let lastPartIndex = partsOrder.indexOf(selector);
+
+    const checkOrder = (currentIndex) => {
+      if (currentIndex < lastPartIndex) {
+        throw new Error(
+          'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+        );
+      }
+      lastPartIndex = currentIndex;
+    };
+
+    return {
+      element: (newValue) => {
+        checkOrder(0);
+
+        if (tag !== '')
+          throw new Error(
+            'Element, id and pseudo-element should not occur more then one time inside the selector'
+          );
+        tag = newValue;
+        return this.createSelector(value + newValue);
+      },
+      id: (newValue) => {
+        checkOrder(1);
+
+        if (value.includes('#')) {
+          throw new Error(
+            'Element, id and pseudo-element should not occur more then one time inside the selector'
+          );
+        }
+        return this.createSelector(`${value}#${newValue}`);
+      },
+
+      class: (newValue) => {
+        checkOrder(2);
+
+        return this.createSelector(`${value}.${newValue}`);
+      },
+
+      attr: (newValue) => {
+        checkOrder(3);
+
+        return this.createSelector(`${value}[${newValue}]`);
+      },
+
+      pseudoClass: (newValue) => {
+        checkOrder(4);
+
+        return this.createSelector(`${value}:${newValue}`);
+      },
+
+      pseudoElement: (newValue) => {
+        checkOrder(5);
+
+        if (value.includes('::')) {
+          throw new Error(
+            'Element, id and pseudo-element should not occur more then one time inside the selector'
+          );
+        }
+        return this.createSelector(`${value}::${newValue}`);
+      },
+
+      combine: (sel, combinator) => {
+        return this.createSelector(`${value} ${combinator} ${sel.stringify()}`);
+      },
+
+      stringify: () => {
+        return value;
+      },
+    };
   },
 };
 
